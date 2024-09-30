@@ -40,13 +40,20 @@ if [ "$dump_flag" = true ] && [ "$trace_flag" = true ]; then
 fi
 # Step 1: Create directory and change into it
 mkdir -p /home/dump-trace && cd /home/dump-trace
-# Find the PID of the .NET process
-pid=$(/tools/dotnet-dump ps | grep '/usr/share/dotnet/dotnet' | awk '{print $1}')
-# Check if PID was found
+# Find the PID(s) of the .NET process
+pid=$( /tools/dotnet-dump ps | grep '/usr/share/dotnet/dotnet' | awk '{print $1}' )
+
+# Check if no PID was found
 if [ -z "$pid" ]; then
     echo "Error: Could not find the .NET process."
     exit 1
 fi
+
+# If multiple PIDs are returned, find the smallest one
+pid=$(echo "$pid" | sort -n | head -n 1)
+
+# Output the smallest PID
+echo "The smallest PID is: $pid"
 # Step 2: Collect dump or trace based on the flag
 if [ "$dump_flag" = true ]; then
     echo "Collecting memory dump..."
