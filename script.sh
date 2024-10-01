@@ -1,86 +1,108 @@
 #!/bin/bash
-
-# Step 1: Create a folder /home/dump-trace if it doesn't exist
-echo "Step 1: Checking if /home/dump-trace directory exists..."
-if [ ! -d "/home/dump-trace" ]; then
-    mkdir -p /home/dump-trace
-    echo "/home/dump-trace directory created."
-else
-    echo "/home/dump-trace directory already exists."
+# Initialize flags
+dump_flag=false
+trace_flag=false
+restart_flag=false
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --dump)
+            dump_flag=true
+            shift
+            ;;
+        --trace)
+            trace_flag=true
+            shift
+            ;;
+        -r|--restart)
+            restart_flag=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--dump | --trace] [-r|--restart]"
+            exit 1
+            ;;
+    esac
+done
+# Ensure that either --dump or --trace is specified
+if [ "$dump_flag" = false ] && [ "$trace_flag" = false ]; then
+    echo "Error: You must specify either --dump or --trace."
+    echo "Usage: $0 [--dump | --trace] [-r|--restart]"
+    exit 1
 fi
+# Ensure that both --dump and --trace are not specified together
+if [ "$dump_flag" = true ] && [ "$trace_flag" = true ]; then
+    echo "Error: You cannot specify both --dump and --trace at the same time."
+    echo "Usage: $0 [--dump | --trace] [-r|--restart]"
+    exit 1
+fi
+# Step 1: Create directory and change into it
+mkdir -p /home/dump-trace && cd /home/dump-trace
+# Find the PID(s) of the .NET process
+pid=$( /tools/dotnet-dump ps | grep '/usr/share/dotnet/dotnet' | awk '{print $1}' )
 
-# Step 2: Get the first PID
-echo "Step 2: Getting the first PID for '/usr/share/dotnet/dotnet'..."
-pid=$( /tools/dotnet-dump ps | grep '/usr/share/dotnet/dotnet' | awk '{print $1}' | head -n 1 )
-echo "PID obtained: $pid"
-
-# Step 3: Echo the PID value
+# Check if no PID was found
 if [ -z "$pid" ]; then
-    echo "Error: No PID found for '/usr/share/dotnet/dotnet'. Exiting."
+    echo "Error: Could not find the .NET process."
     exit 1
 fi
 
-# Step 4 & 5: Check the input parameter
-if [ "$1" == "--dump" ]; then
-    echo "Step 4: Running dotnet-dump to collect dump for PID $pid..."
-    dump_file="/home/dump-trace/core_${pid}_$(date +%Y%m%d%H%M%S).dump"
-    /tools/dotnet-dump collect -p "$pid" -o "$dump_file"
-    echo "Dump collection completed. Expected file: $dump_file"
-elif [ "$1" == "--trace" ]; then
-    echo "Step 5: Running dotnet-trace to collect trace for PID $pid..."
-    trace_file="/home/dump-trace/trace_${pid}_$(date +%Y%m%d%H%M%S).nettrace"
-    /tools/dotnet-trace collect -p "$pid" --duration 00:01:30 -o "$trace_file"
-    echo "Trace collection completed. Expected file: $trace_file"
-else
-    echo "Error: Invalid parameter. Use '--dump' or '--trace'. Exiting."
-    exit 1
+# If multiple PIDs are returned, find the smallest one
+pid=$(echo "$pid" | sort -n | head -n 1)
+
+# Output the smallest PID
+echo "The smallest PID is: $pid"
+# Step 2: Collect dump or trace based on the flag
+if [ "$dump_flag" = true ]; then
+    echo "Collecting memory dump..."
+    /tools/dotnet-dump collect -p "$pid"
+elif [ "$trace_flag" = true ]; then
+    echo "Collecting performance trace..."
+    /tools/dotnet-trace collect -p "$pid" --duration 00:00:01:30
 fi
-
-# Step 6: Check if files were created
-echo "Step 6: Listing files in /home/dump-trace..."
-ls -l /home/dump-trace
-
-# Step 7: Find the newest trace or dump in /home/dump-trace based on input parameter
-echo "Step 7: Finding the newest trace or dump file in /home/dump-trace..."
-if [ "$1" == "--dump" ]; then
-    collected_file=$(find /home/dump-trace -type f -name 'core_*' -print0 | xargs -0 ls -t | head -n 1)
-elif [ "$1" == "--trace" ]; then
-    collected_file=$(find /home/dump-trace -type f -name '*.nettrace' -print0 | xargs -0 ls -t | head -n 1)
+# Step 3: Get environment variables
+environ=$(cat "/proc/$pid/environ" | tr '\0' '\n')
+# Step 4: Extract the container URL from environment variables
+container_url=$(echo "$environ" | grep 'blob.core.windows.net/insights-logs-appserviceconsolelogs' | head -n 1 | cut -d= -f2-)
+# Display the container URL
+echo "Container URL: $container_url"
+# Step 5: Find the collected file
+if [ "$dump_flag" = true ]; then
+    collected_file=$(ls -t /home/dump-trace/core_* | head -1)
+elif [ "$trace_flag" = true ]; then
+    collected_file=$(ls -t /home/dump-trace/*.nettrace | head -1)
 fi
-
-# Step 8: Echo the collected file
-echo "Collected file found: $collected_file"
-
-# Step 9: Upload the trace or dump using azcopy
 if [ -z "$collected_file" ]; then
-    echo "Error: No trace or dump file found to upload. Exiting."
-    exit 1
-fi
-
-if [ ! -f "$collected_file" ]; then
-    echo "Error: The file '$collected_file' does not exist. Exiting."
-    exit 1
-fi
-
-echo "Uploading file $collected_file to $container_url using azcopy..."
-/tools/azcopy copy "$collected_file" "$container_url" --from-to=LocalBlob
-if [ $? -eq 0 ]; then
-    echo "File uploaded successfully."
+    echo "No collected file found."
 else
-    echo "Error: File upload failed."
+    echo "File to be uploaded: $collected_file"
+    # Step 6: Upload the collected file
+    if [ -n "$container_url" ]; then
+        /tools/azcopy copy "$collected_file" "$container_url"
+        if [ $? -eq 0 ]; then
+            echo "File uploaded successfully."
+            # Remove the collected file after successful upload
+            rm "$collected_file"
+            echo "Collected file removed."
+        else
+            echo "Failed to upload the file."
+            # Optionally, remove the collected file even if upload failed
+            # rm "$collected_file"
+            # echo "Collected file removed despite upload failure."
+        fi
+    else
+        echo "Container URL not found in environment variables."
+    fi
 fi
-
-# Step 10: If the input parameter is -r, restart the application
-if [ "$2" == "-r" ]; then
-    echo "Step 10: Restarting the application by killing 'start.sh' process..."
+# If the -r or --restart option was used, restart the application
+if [ "$restart_flag" = true ]; then
+    echo "Restarting the application by killing 'start.sh' process..."
     pid_to_kill=$(ps -A | grep '[s]tart\.sh' | awk '{print $1}')
     if [ -n "$pid_to_kill" ]; then
         kill -9 "$pid_to_kill"
-        if [ $? -eq 0 ]; then
-            echo "'start.sh' process killed successfully."
-        else
-            echo "Error: Failed to kill 'start.sh' process."
-        fi
+        echo "'start.sh' process killed."
     else
         echo "No 'start.sh' process found to kill."
     fi
