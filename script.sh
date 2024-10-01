@@ -67,16 +67,28 @@ elif [ "$1" == "--trace" ]; then
 fi
 
 # Step 10: Upload the trace or dump using azcopy
-if [ -n "$collected_file" ]; then
-    echo "Step 10: Uploading file $collected_file to $container_url using azcopy..."
-    /tools/azcopy copy "$collected_file" "$container_url"
-    if [ $? -eq 0 ]; then
-        echo "File uploaded successfully."
-    else
-        echo "Error: File upload failed."
-    fi
+echo "Step 10: Checking collected file and container URL before uploading..."
+if [ -z "$collected_file" ]; then
+    echo "Error: No trace or dump file found to upload. Exiting."
+    exit 1
+fi
+
+if [ ! -f "$collected_file" ]; then
+    echo "Error: The file '$collected_file' does not exist. Exiting."
+    exit 1
+fi
+
+if [[ ! "$container_url" =~ ^https:// ]]; then
+    echo "Error: Container URL does not appear to be valid. Exiting."
+    exit 1
+fi
+
+echo "Uploading file $collected_file to $container_url using azcopy..."
+/tools/azcopy copy "$collected_file" "$container_url"
+if [ $? -eq 0 ]; then
+    echo "File uploaded successfully."
 else
-    echo "Error: No trace or dump file found to upload."
+    echo "Error: File upload failed."
 fi
 
 # Step 11: If the input parameter is -r, restart the application
