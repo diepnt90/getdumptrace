@@ -76,23 +76,33 @@ if [ -z "$collected_file" ]; then
 else
     echo "File to be uploaded: $collected_file"
     # Step 6: Upload the collected file
-    if [ -n "$container_url" ]; then
+if [ -n "$container_url" ]; then
+    /tools/azcopy copy "$collected_file" "$container_url"
+    if [ $? -eq 0 ]; then
+        echo "File uploaded successfully."
+        # Remove the collected file after successful upload
+        rm "$collected_file"
+        echo "Collected file removed."
+    else
+        echo "Failed to upload the file. Retrying in 10 seconds..."
+        sleep 10
         /tools/azcopy copy "$collected_file" "$container_url"
         if [ $? -eq 0 ]; then
-            echo "File uploaded successfully."
+            echo "File uploaded successfully on retry."
             # Remove the collected file after successful upload
             rm "$collected_file"
             echo "Collected file removed."
         else
-            echo "Failed to upload the file."
+            echo "Failed to upload the file after retry."
             # Optionally, remove the collected file even if upload failed
             # rm "$collected_file"
             # echo "Collected file removed despite upload failure."
         fi
-    else
-        echo "Container URL not found in environment variables."
     fi
+else
+    echo "Container URL not found in environment variables."
 fi
+
 # If the -r or --restart option was used, restart the application
 if [ "$restart_flag" = true ]; then
     echo "Restarting the application by killing 'start.sh' process..."
