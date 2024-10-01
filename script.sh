@@ -102,7 +102,6 @@ if [ -n "$container_url" ]; then
 else
     echo "Container URL not found in environment variables."
 fi
-
 # If the -r or --restart option was used, restart the application
 if [ "$restart_flag" = true ]; then
     echo "Restarting the application by killing 'start.sh' process..."
