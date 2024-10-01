@@ -93,3 +93,9 @@ case "$1" in
     exit 1
     ;;
 esac
+
+# Clean up: Clear the /home/dump-trace directory
+echo "Cleaning up the /home/dump-trace directory..."
+rm -rf /home/dump-trace/*
+
+echo "Cleanup completed."
