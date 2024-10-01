@@ -48,7 +48,11 @@ case "$1" in
       echo "No dump file found."
     else
       echo "Newest dump file: $newest_dump"
-      
+
+      # Wait for 10 seconds to ensure the file is fully written
+      echo "Waiting for 10 seconds to ensure the file is stable..."
+      sleep 10
+
       # Upload the dump file to the Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
         echo "Uploading $newest_dump to Azure Blob storage..."
@@ -70,7 +74,11 @@ case "$1" in
       echo "No trace file found."
     else
       echo "Newest trace file: $newest_trace"
-      
+
+      # Wait for 10 seconds to ensure the file is fully written
+      echo "Waiting for 10 seconds to ensure the file is stable..."
+      sleep 10
+
       # Upload the trace file to the Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
         echo "Uploading $newest_trace to Azure Blob storage..."
