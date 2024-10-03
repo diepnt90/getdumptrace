@@ -63,7 +63,7 @@ case "$1" in
       sleep 10
 
       # Rename the dump file to include COMPUTERNAME and the creation date/time
-      timestamp=$(date +"%Y%m%d%H%M%S")
+      timestamp=$(date +"%Y%m%d_%H%M%S")
       new_dump_name="core_${COMPUTERNAME}_${timestamp}"
       mv "$newest_dump" "$new_dump_name"
       echo "Renamed dump file to: $new_dump_name"
@@ -97,7 +97,7 @@ case "$1" in
       sleep 10
 
       # Rename the trace file to include COMPUTERNAME and the creation date/time
-      timestamp=$(date +"%Y%m%d%H%M%S")
+      timestamp=$(date +"%Y%m%d_%H%M%S")
       new_trace_name="${COMPUTERNAME}_${timestamp}.nettrace"
       mv "$newest_trace" "$new_trace_name"
       echo "Renamed trace file to: $new_trace_name"
