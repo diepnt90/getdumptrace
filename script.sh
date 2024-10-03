@@ -24,6 +24,15 @@ fi
 # Extract the environment variables of the process
 environ=$(cat "/proc/$pid/environ" | tr '\0' '\n')
 
+# Extract COMPUTERNAME from the environment variable
+COMPUTERNAME=$(echo "$environ" | grep '^COMPUTERNAME=' | cut -d= -f2)
+
+# Check if COMPUTERNAME is found
+if [ -z "$COMPUTERNAME" ]; then
+  echo "COMPUTERNAME not found in environment."
+  exit 1
+fi
+
 # Extract the Azure Blob SAS URL that contains the specific blob path
 blob_sas=$(echo "$environ" | grep 'blob.core.windows.net/insights-logs-appserviceconsolelogs' | head -n 1 | cut -d= -f2-)
 
@@ -53,10 +62,16 @@ case "$1" in
       echo "Waiting for 10 seconds to ensure the file is stable..."
       sleep 10
 
-      # Upload the dump file to the Azure Blob storage using azcopy
+      # Rename the dump file to include COMPUTERNAME and the creation date/time
+      timestamp=$(date +"%Y%m%d%H%M%S")
+      new_dump_name="core_${COMPUTERNAME}_${timestamp}"
+      mv "$newest_dump" "$new_dump_name"
+      echo "Renamed dump file to: $new_dump_name"
+
+      # Upload the renamed dump file to the Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
-        echo "Uploading $newest_dump to Azure Blob storage..."
-        /tools/azcopy copy "$newest_dump" "$blob_sas"
+        echo "Uploading $new_dump_name to Azure Blob storage..."
+        /tools/azcopy copy "$new_dump_name" "$blob_sas"
       else
         echo "No valid Azure Blob SAS URL found. Skipping upload."
       fi
@@ -79,10 +94,16 @@ case "$1" in
       echo "Waiting for 10 seconds to ensure the file is stable..."
       sleep 10
 
-      # Upload the trace file to the Azure Blob storage using azcopy
+      # Rename the trace file to include COMPUTERNAME and the creation date/time
+      timestamp=$(date +"%Y%m%d%H%M%S")
+      new_trace_name="${COMPUTERNAME}_${timestamp}.nettrace"
+      mv "$newest_trace" "$new_trace_name"
+      echo "Renamed trace file to: $new_trace_name"
+
+      # Upload the renamed trace file to the Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
-        echo "Uploading $newest_trace to Azure Blob storage..."
-        /tools/azcopy copy "$newest_trace" "$blob_sas"
+        echo "Uploading $new_trace_name to Azure Blob storage..."
+        /tools/azcopy copy "$new_trace_name" "$blob_sas"
       else
         echo "No valid Azure Blob SAS URL found. Skipping upload."
       fi
