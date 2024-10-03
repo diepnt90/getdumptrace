@@ -67,7 +67,9 @@ case "$1" in
       new_dump_name="core_${COMPUTERNAME}_${timestamp}"
       mv "$newest_dump" "$new_dump_name"
       echo "Renamed dump file to: $new_dump_name"
-
+# Wait for 10 seconds to ensure the file is fully written
+      echo "Waiting for 10 seconds to ensure the file is stable..."
+      sleep 10
       # Upload the renamed dump file to the Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
         echo "Uploading $new_dump_name to Azure Blob storage..."
@@ -99,7 +101,9 @@ case "$1" in
       new_trace_name="${COMPUTERNAME}_${timestamp}.nettrace"
       mv "$newest_trace" "$new_trace_name"
       echo "Renamed trace file to: $new_trace_name"
-
+# Wait for 10 seconds to ensure the file is fully written
+      echo "Waiting for 10 seconds to ensure the file is stable..."
+      sleep 10
       # Upload the renamed trace file to the Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
         echo "Uploading $new_trace_name to Azure Blob storage..."
