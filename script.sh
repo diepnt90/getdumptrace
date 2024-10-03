@@ -43,76 +43,65 @@ else
   echo "Found Azure Blob SAS URL: $blob_sas"
 fi
 
+# Timestamp to be used in the output file names
+timestamp=$(date +"%Y%m%d_%H%M%S")
+
 # Take action based on the input argument
 case "$1" in
   --dump)
     echo "Collecting dump for PID: $pid"
-    /tools/dotnet-dump collect -p "$pid"
 
-    # Find the newest dump file with the pattern 'core_*'
-    newest_dump=$(ls -t core_* 2>/dev/null | head -n 1)
+    # Specify the output name directly with the -o flag, without .dmp extension
+    dump_file="core_${COMPUTERNAME}_${timestamp}"
+    /tools/dotnet-dump collect -p "$pid" -o "$dump_file"
 
-    # Check if a dump file is found
-    if [ -z "$newest_dump" ]; then
-      echo "No dump file found."
+    # Check if the dump file was created successfully
+    if [ ! -f "$dump_file" ]; then
+      echo "Failed to create dump file."
     else
-      echo "Newest dump file: $newest_dump"
+      echo "Dump file created: $dump_file"
 
       # Wait for 10 seconds to ensure the file is fully written
-      echo "Waiting for 10 seconds to ensure the file is stable..."
+      echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
       sleep 10
 
-      # Rename the dump file to include COMPUTERNAME and the creation date/time
-      timestamp=$(date +"%Y%m%d_%H%M%S")
-      new_dump_name="core_${COMPUTERNAME}_${timestamp}"
-      mv "$newest_dump" "$new_dump_name"
-      echo "Renamed dump file to: $new_dump_name"
-# Wait for 10 seconds to ensure the file is fully written
-      echo "Waiting for 10 seconds to ensure the file is stable..."
-      sleep 10
-      # Upload the renamed dump file to the Azure Blob storage using azcopy
+      # Upload the dump file to Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
-        echo "Uploading $new_dump_name to Azure Blob storage..."
-        /tools/azcopy copy "$new_dump_name" "$blob_sas"
+        echo "Uploading $dump_file to Azure Blob storage..."
+        /tools/azcopy copy "$dump_file" "$blob_sas"
       else
         echo "No valid Azure Blob SAS URL found. Skipping upload."
       fi
     fi
     ;;
+    
   --trace)
     echo "Collecting trace for PID: $pid with duration 1 minute and 30 seconds"
-    /tools/dotnet-trace collect -p "$pid" --duration 00:00:01:30
 
-    # Find the newest trace file with the pattern '*.nettrace'
-    newest_trace=$(ls -t *.nettrace 2>/dev/null | head -n 1)
+    # Specify the output name directly with the -o flag
+    trace_file="${COMPUTERNAME}_${timestamp}.nettrace"
+    /tools/dotnet-trace collect -p "$pid" --duration 00:00:01:30 -o "$trace_file"
 
-    # Check if a trace file is found
-    if [ -z "$newest_trace" ]; then
-      echo "No trace file found."
+    # Check if the trace file was created successfully
+    if [ ! -f "$trace_file" ]; then
+      echo "Failed to create trace file."
     else
-      echo "Newest trace file: $newest_trace"
+      echo "Trace file created: $trace_file"
 
       # Wait for 10 seconds to ensure the file is fully written
-      echo "Waiting for 10 seconds to ensure the file is stable..."
+      echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
       sleep 10
 
-      # Rename the trace file to include COMPUTERNAME and the creation date/time
-      timestamp=$(date +"%Y%m%d_%H%M%S")
-      new_trace_name="${COMPUTERNAME}_${timestamp}.nettrace"
-      mv "$newest_trace" "$new_trace_name"
-      echo "Renamed trace file to: $new_trace_name"
-# Wait for 10 seconds to ensure the file is fully written
-      echo "Waiting for 10 seconds to ensure the file is stable..."
-      sleep 10
-      # Upload the renamed trace file to the Azure Blob storage using azcopy
+      # Upload the trace file to Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
-        echo "Uploading $new_trace_name to Azure Blob storage..."
-        /tools/azcopy copy "$new_trace_name" "$blob_sas"
+        echo "Uploading $trace_file to Azure Blob storage..."
+        /tools/azcopy copy "$trace_file" "$blob_sas"
       else
         echo "No valid Azure Blob SAS URL found. Skipping upload."
       fi
     fi
     ;;
+
   *)
     echo "Invalid argument. Use --dump or --trace"
     exit 1
