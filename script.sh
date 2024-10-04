@@ -1,10 +1,29 @@
 #!/bin/bash
 
+# Initialize the restart flag
+restart_flag=false
+
 # Check if the input argument is provided
 if [ -z "$1" ]; then
-  echo "Usage: $0 --dump or --trace"
+  echo "Usage: $0 --dump or --trace [-r]"
   exit 1
 fi
+
+# Parse arguments
+for arg in "$@"; do
+  case "$arg" in
+    -r)
+      restart_flag=true
+      ;;
+    --dump|--trace)
+      action=$arg
+      ;;
+    *)
+      echo "Invalid argument: $arg. Use --dump or --trace [-r]"
+      exit 1
+      ;;
+  esac
+done
 
 # Create the /home/dump-trace directory if it does not exist
 mkdir -p /home/dump-trace
@@ -47,7 +66,7 @@ fi
 timestamp=$(date +"%Y%m%d_%H%M%S")
 
 # Take action based on the input argument
-case "$1" in
+case "$action" in
   --dump)
     echo "Collecting dump for PID: $pid"
 
@@ -74,7 +93,7 @@ case "$1" in
       fi
     fi
     ;;
-    
+
   --trace)
     echo "Collecting trace for PID: $pid with duration 1 minute and 30 seconds"
 
@@ -113,3 +132,18 @@ echo "Cleaning up the /home/dump-trace directory..."
 rm -rf /home/dump-trace/*
 
 echo "Cleanup completed."
+
+# If the restart flag is set, restart the application
+if [ "$restart_flag" = true ]; then
+    echo "Restarting the application by killing 'start.sh' process..."
+    pid_to_kill=$(ps -A | grep '[s]tart\.sh' | awk '{print $1}')
+    if [ -n "$pid_to_kill" ]; then
+        kill -9 "$pid_to_kill"
+        echo "'start.sh' process killed. Restarting now..."
+        # Start the application again (modify the path as necessary)
+        /path/to/start.sh &
+        echo "Application restarted."
+    else
+        echo "No 'start.sh' process found to kill."
+    fi
+fi
