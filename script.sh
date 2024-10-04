@@ -65,6 +65,30 @@ fi
 # Timestamp to be used in the output file names
 timestamp=$(date +"%Y%m%d_%H%M%S")
 
+# Function to upload a file to Azure Blob storage with retry logic
+upload_file() {
+    local file_to_upload="$1"
+    local sas_url="$2"
+
+    for attempt in 1 2; do
+        echo "Attempting to upload $file_to_upload (Attempt $attempt)..."
+        upload_output=$(/tools/azcopy copy "$file_to_upload" "$sas_url" 2>&1)
+        echo "$upload_output"
+
+        # Check the upload status based on the output message
+        if echo "$upload_output" | grep -q "Final Job Status: Completed"; then
+            echo "Upload succeeded."
+            return 0
+        elif [ "$attempt" -eq 1 ]; then
+            echo "Upload failed. Retrying after 30 seconds..."
+            sleep 30
+        else
+            echo "Upload failed after retry. Skipping upload."
+            return 1
+        fi
+    done
+}
+
 # Take action based on the input argument
 case "$action" in
   --dump)
@@ -81,13 +105,12 @@ case "$action" in
       echo "Dump file created: $dump_file"
 
       # Wait for 10 seconds to ensure the file is fully written
-      echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
+      echo "Waiting for 30 seconds to ensure the file is stable before uploading..."
       sleep 30
 
-      # Upload the dump file to Azure Blob storage using azcopy
+      # Upload the dump file to Azure Blob storage using azcopy with retry logic
       if [ -n "$blob_sas" ]; then
-        echo "Uploading $dump_file to Azure Blob storage..."
-        /tools/azcopy copy "$dump_file" "$blob_sas"
+        upload_file "$dump_file" "$blob_sas"
       else
         echo "No valid Azure Blob SAS URL found. Skipping upload."
       fi
@@ -111,10 +134,9 @@ case "$action" in
       echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
       sleep 10
 
-      # Upload the trace file to Azure Blob storage using azcopy
+      # Upload the trace file to Azure Blob storage using azcopy with retry logic
       if [ -n "$blob_sas" ]; then
-        echo "Uploading $trace_file to Azure Blob storage..."
-        /tools/azcopy copy "$trace_file" "$blob_sas"
+        upload_file "$trace_file" "$blob_sas"
       else
         echo "No valid Azure Blob SAS URL found. Skipping upload."
       fi
