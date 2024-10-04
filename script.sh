@@ -82,7 +82,7 @@ case "$action" in
 
       # Wait for 10 seconds to ensure the file is fully written
       echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
-      sleep 10
+      sleep 30
 
       # Upload the dump file to Azure Blob storage using azcopy
       if [ -n "$blob_sas" ]; then
