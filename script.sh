@@ -123,22 +123,30 @@ case "$action" in
     # Specify the output name directly with the -o flag
     trace_file="${COMPUTERNAME}_${timestamp}.nettrace"
     /tools/dotnet-trace collect -p "$pid" --duration 00:00:01:30 -o "$trace_file"
-
+# Wait for 10 seconds to ensure the file is fully written
+        echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
+        sleep 10
     # Check if the trace file was created successfully
     if [ ! -f "$trace_file" ]; then
       echo "Failed to create trace file."
     else
       echo "Trace file created: $trace_file"
 
-      # Wait for 10 seconds to ensure the file is fully written
-      echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
-      sleep 10
+      # Compress the trace file using gzip
+      gzip "$trace_file"
 
-      # Upload the trace file to Azure Blob storage using azcopy with retry logic
-      if [ -n "$blob_sas" ]; then
-        upload_file "$trace_file" "$blob_sas"
+      # Check if the gzip command succeeded
+      if [ ! -f "${trace_file}.gz" ]; then
+        echo "Failed to compress trace file."
       else
-        echo "No valid Azure Blob SAS URL found. Skipping upload."
+        echo "Compressed trace file: ${trace_file}.gz"
+
+        # Upload the compressed trace file to Azure Blob storage using azcopy with retry logic
+        if [ -n "$blob_sas" ]; then
+          upload_file "${trace_file}.gz" "$blob_sas"
+        else
+          echo "No valid Azure Blob SAS URL found. Skipping upload."
+        fi
       fi
     fi
     ;;
