@@ -121,18 +121,20 @@ case "$action" in
     echo "Collecting trace for PID: $pid with duration 1 minute and 30 seconds"
 
     # Specify the output name directly with the -o flag
-    trace_file="${COMPUTERNAME}_${timestamp}.nettrace"
-    /tools/dotnet-trace collect -p "$pid" --duration 00:00:01:30 -o "$trace_file"
+    trace_file_temp="trace_${COMPUTERNAME}_${timestamp}.nettrace"
+    /tools/dotnet-trace collect -p "$pid" --duration 00:00:01:30 -o "$trace_file_temp"
 
     # Check if the trace file was created successfully
-    if [ ! -f "$trace_file" ]; then
+    if [ ! -f "$trace_file_temp" ]; then
       echo "Failed to create trace file."
     else
-      echo "Trace file created: $trace_file"
+      echo "Trace file created: $trace_file_temp"
 
       # Wait for 10 seconds to ensure the file is fully written
       echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
       sleep 10
+# Gzip trace file
+gzip -c "$trace_file_temp" > "$trace_file"
 
       # Upload the trace file to Azure Blob storage using azcopy with retry logic
       if [ -n "$blob_sas" ]; then
