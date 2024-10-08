@@ -80,8 +80,8 @@ upload_file() {
             echo "Upload succeeded."
             return 0
         elif [ "$attempt" -eq 1 ]; then
-            echo "Upload failed. Retrying after 30 seconds..."
-            sleep 30
+            echo "Upload failed. Retrying after 5 seconds..."
+            sleep 300
         else
             echo "Upload failed after retry. Skipping upload."
             return 1
@@ -104,9 +104,9 @@ case "$action" in
     else
       echo "Dump file created: $dump_file"
 
-      # Wait for 10 seconds to ensure the file is fully written
-      echo "Waiting for 30 seconds to ensure the file is stable before uploading..."
-      sleep 30
+      # Wait for 30 seconds to ensure the file is fully written
+      echo "Waiting for 2 minute to ensure the file is stable before uploading..."
+      sleep 120
 
       # Upload the dump file to Azure Blob storage using azcopy with retry logic
       if [ -n "$blob_sas" ]; then
@@ -124,8 +124,8 @@ case "$action" in
     trace_file="${COMPUTERNAME}_${timestamp}.nettrace"
     /tools/dotnet-trace collect -p "$pid" --duration 00:00:01:30 -o "$trace_file"
 # Wait for 10 seconds to ensure the file is fully written
-        echo "Waiting for 10 seconds to ensure the file is stable before uploading..."
-        sleep 10
+        echo "Waiting for 30 seconds to ensure the file is stable before uploading..."
+        sleep 30
     # Check if the trace file was created successfully
     if [ ! -f "$trace_file" ]; then
       echo "Failed to create trace file."
