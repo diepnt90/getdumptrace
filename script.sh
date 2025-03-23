@@ -117,9 +117,9 @@ case "$action" in
     else
       echo "Dump file created: $dump_file"
 
-      # Wait for 30 seconds to ensure the file is fully written
-      echo "Waiting for 30 seconds to ensure the file is stable before uploading..."
-      sleep 30
+      # Wait for 60 seconds to ensure the file is fully written
+      echo "Waiting for 60 seconds to ensure the file is stable before uploading..."
+      sleep 60
 
       # Upload the dump file to Azure Blob storage using azcopy with retry logic
       if [ -n "$blob_sas" ]; then
