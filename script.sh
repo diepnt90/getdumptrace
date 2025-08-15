@@ -1,5 +1,12 @@
 #!/bin/bash
-
+# Display the introduction with a dotted line
+echo "-------------------------------------------------------------"
+echo "-------------------------------------------------------------"
+echo " Welcome to Optimizely IM tool for capturing dumps and traces"
+echo " written and maintained by Diep Nguyen"
+echo " Current date: $(date)"
+echo "-------------------------------------------------------------"
+echo "-------------------------------------------------------------"
 # Initialize the restart flag
 restart_flag=false
 
